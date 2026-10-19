@@ -354,21 +354,31 @@ function drawChart(chart) {
   const ctx = document.getElementById("priceChart").getContext("2d");
   if (chartInstance) chartInstance.destroy();
 
+  // Pulled from the CSS theme so the chart always matches the page
+  // (dark background, light text) instead of hardcoding colors that
+  // would go invisible if the theme ever changes.
+  const style = getComputedStyle(document.documentElement);
+  const gridColor = style.getPropertyValue("--line").trim();
+  const textColor = style.getPropertyValue("--ink-soft").trim();
+
   chartInstance = new Chart(ctx, {
     type: "line",
     data: {
       labels: chart.dates,
       datasets: [
-        { label: "Close Price", data: chart.close, borderColor: "#161a3d", borderWidth: 1.5, pointRadius: 0 },
+        { label: "Close Price", data: chart.close, borderColor: "#f4f5fb", borderWidth: 1.5, pointRadius: 0 },
         { label: "SMA20", data: chart.sma20, borderColor: "#f0a93c", borderWidth: 1.5, pointRadius: 0 },
-        { label: "SMA50", data: chart.sma50, borderColor: "#8d92bd", borderWidth: 1.5, pointRadius: 0 },
+        { label: "SMA50", data: chart.sma50, borderColor: "#7d84ff", borderWidth: 1.5, pointRadius: 0 },
       ],
     },
     options: {
       responsive: true,
       interaction: { mode: "index", intersect: false },
-      scales: { x: { ticks: { maxTicksLimit: 10 } }, y: { title: { display: true, text: "Price (₹)" } } },
-      plugins: { legend: { position: "top" } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 10, color: textColor }, grid: { color: gridColor } },
+        y: { title: { display: true, text: "Price (₹)", color: textColor }, ticks: { color: textColor }, grid: { color: gridColor } },
+      },
+      plugins: { legend: { position: "top", labels: { color: textColor } } },
     },
   });
 }
