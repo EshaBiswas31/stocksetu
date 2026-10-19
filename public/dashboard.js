@@ -32,12 +32,19 @@ const PILLAR_CONFIG = {
   },
 };
 
+const PROFILE_LABELS = {
+  trader: "Trader (short-term)",
+  balanced: "Balanced",
+  investor: "Investor (long-term)",
+};
+
 (async function init() {
   const user = await requireLogin();
   if (!user) return;
   document.getElementById("userName").textContent = user.name;
   if (user.role === "admin") document.getElementById("adminLink").classList.remove("hidden");
   loadRecent();
+  loadWatchlist();
 })();
 
 document.getElementById("logoutBtn").addEventListener("click", doLogout);
@@ -45,10 +52,18 @@ document.getElementById("analyzeBtn").addEventListener("click", runAnalysis);
 document.getElementById("symbolInput").addEventListener("keydown", (e) => {
   if (e.key === "Enter") runAnalysis();
 });
+document.getElementById("profileInput").addEventListener("change", () => {
+  // Changing the risk profile re-weights the same signals, so if a
+  // report is already on screen, just re-run the analysis with the
+  // new profile rather than making the user click Analyze again.
+  if (report) runAnalysis();
+});
+document.getElementById("starBtn").addEventListener("click", toggleWatchlist);
 
 async function runAnalysis() {
   const symbol = document.getElementById("symbolInput").value.trim();
   const exchange = document.getElementById("exchangeInput").value;
+  const profile = document.getElementById("profileInput").value;
   const statusLine = document.getElementById("statusLine");
   const results = document.getElementById("results");
   const btn = document.getElementById("analyzeBtn");
@@ -65,7 +80,8 @@ async function runAnalysis() {
   statusLine.textContent = `Fetching ${symbol} from Yahoo Finance and running fundamental, technical and quantitative analysis...`;
   results.classList.add("hidden");
 
-  const { ok, data } = await apiGet(`/api/analyze?symbol=${encodeURIComponent(symbol)}&exchange=${exchange}`);
+  const url = `/api/analyze?symbol=${encodeURIComponent(symbol)}&exchange=${exchange}&profile=${profile}`;
+  const { ok, data } = await apiGet(url);
 
   btn.disabled = false;
   btn.textContent = "Analyze";
@@ -85,11 +101,68 @@ async function runAnalysis() {
   loadRecent();
 }
 
+async function toggleWatchlist() {
+  if (!report) return;
+  const btn = document.getElementById("starBtn");
+  btn.disabled = true;
+  const { ok, data } = await apiPost("/api/watchlist/toggle", {
+    symbol: report.symbol,
+    exchange: report.exchange,
+    company_name: report.company_name,
+  });
+  btn.disabled = false;
+  if (!ok) return;
+  report.in_watchlist = data.added;
+  renderStarButton();
+  loadWatchlist();
+}
+
+function renderStarButton() {
+  const btn = document.getElementById("starBtn");
+  if (report.in_watchlist) {
+    btn.innerHTML = "&#9733; In Watchlist";
+    btn.classList.add("active");
+  } else {
+    btn.innerHTML = "&#9734; Add to Watchlist";
+    btn.classList.remove("active");
+  }
+}
+
+async function loadWatchlist() {
+  const { ok, data } = await apiGet("/api/watchlist");
+  if (!ok) return;
+  const ul = document.getElementById("watchlistList");
+  ul.innerHTML = "";
+  if (data.watchlist.length === 0) {
+    ul.innerHTML = `<li style="color: var(--muted);">Nothing starred yet -- analyze a company and click "Add to Watchlist".</li>`;
+    return;
+  }
+  data.watchlist.forEach((r) => {
+    const li = document.createElement("li");
+    li.style.cursor = "pointer";
+    const scoreHtml = r.overall_score === null || r.overall_score === undefined
+      ? `<span class="score-chip chip-neutral">not yet scored</span>`
+      : `<span class="score-chip ${labelClass(r.label)}">${signed(r.overall_score)} &middot; ${r.label}</span>`;
+    li.innerHTML = `
+      <div><span class="tkr">${r.symbol}</span> &middot; <span class="co">${r.company_name || ""} (${r.exchange})</span></div>
+      ${scoreHtml}
+    `;
+    li.addEventListener("click", () => {
+      document.getElementById("symbolInput").value = r.symbol;
+      document.getElementById("exchangeInput").value = r.exchange;
+      runAnalysis();
+    });
+    ul.appendChild(li);
+  });
+}
+
 function renderAll() {
   document.getElementById("companyTitle").textContent =
     `${report.company_name} (${report.symbol}.${report.exchange === "NSE" ? "NS" : "BO"})`;
 
   renderOverall();
+  renderStarButton();
+  renderDrivers();
   renderPillarTabs();
   renderHorizonTabs();
   renderHorizonContent();
@@ -119,9 +192,29 @@ function renderOverall() {
   document.getElementById("needle").style.transform = `translateX(-50%) rotate(${angle}deg)`;
 
   document.getElementById("rationaleText").textContent = o.rationale;
-  document.getElementById("miniFund").textContent = signed(o.pillar_scores.fundamental);
-  document.getElementById("miniTech").textContent = signed(o.pillar_scores.technical);
-  document.getElementById("miniQuant").textContent = signed(o.pillar_scores.quant);
+  document.getElementById("profileBadge").textContent = `(${o.profile_label || PROFILE_LABELS[o.profile] || ""} profile)`;
+  document.getElementById("miniFund").textContent = pillarSigned(o.pillar_scores.fundamental);
+  document.getElementById("miniTech").textContent = pillarSigned(o.pillar_scores.technical);
+  document.getElementById("miniQuant").textContent = pillarSigned(o.pillar_scores.quant);
+}
+
+function pillarSigned(n) {
+  return n === null || n === undefined ? "n/a" : signed(n);
+}
+
+function renderDrivers() {
+  const drivers = report.overall.drivers || { positive: [], negative: [] };
+  const posEl = document.getElementById("driversPositive");
+  const negEl = document.getElementById("driversNegative");
+
+  const row = (d) => `<li><span>${d.metric} <span class="driver-tag">${d.pillar} &middot; ${d.horizon}</span></span><span class="metric-score ${scoreClass(d.score)}">${signed(d.score)}</span></li>`;
+
+  posEl.innerHTML = drivers.positive.length
+    ? drivers.positive.map(row).join("")
+    : `<li style="color: var(--muted);">No strong bullish signal found.</li>`;
+  negEl.innerHTML = drivers.negative.length
+    ? drivers.negative.map(row).join("")
+    : `<li style="color: var(--muted);">No strong bearish signal found.</li>`;
 }
 
 function signed(n) {
@@ -149,10 +242,13 @@ function renderPillarTabs() {
   const wrap = document.getElementById("pillarTabs");
   wrap.innerHTML = "";
   Object.entries(PILLAR_CONFIG).forEach(([key, cfg]) => {
-    const pillarData = report[key];
+    // Use the profile-weighted pillar score (same number shown at the
+    // top), not each module's own equal-weight overall_score, so the
+    // same pillar never shows two different numbers on screen.
+    const badgeScore = report.overall.pillar_scores[key];
     const btn = document.createElement("button");
     btn.className = "pillar-tab" + (key === activePillar ? " active" : "");
-    btn.innerHTML = `${cfg.label} <span class="pillar-score-badge">${signed(pillarData.overall_score)}</span>`;
+    btn.innerHTML = `${cfg.label} <span class="pillar-score-badge">${pillarSigned(badgeScore)}</span>`;
     btn.addEventListener("click", () => {
       activePillar = key;
       renderPillarTabs();

@@ -4,7 +4,7 @@ db.py
 All database access lives here, as plain SQL (no ORM) so it's easy to
 read and explain. PostgreSQL, hosted for free via Vercel Postgres (Neon).
 
-Two tables:
+Three tables:
   users        - one row per person who can log in: name, email, hashed
                  password, role (admin/user), active flag, password-reset
                  token. Rows get created two ways: a person signs
@@ -13,6 +13,8 @@ Two tables:
   score_cache  - the last full report computed for each company, so
                  repeat searches are instant and "Recently Analyzed"
                  has something to show.
+  watchlist    - which companies each logged-in user has starred, so
+                 they can jump straight back to the ones they track.
 """
 
 import os
@@ -55,6 +57,17 @@ def init_db():
                     report JSONB,
                     fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     UNIQUE (symbol, exchange)
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS watchlist (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    symbol TEXT NOT NULL,
+                    exchange TEXT NOT NULL,
+                    company_name TEXT,
+                    added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UNIQUE (user_id, symbol, exchange)
                 );
             """)
             conn.commit()

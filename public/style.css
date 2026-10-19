@@ -212,3 +212,29 @@ th { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-s
 .small-btn { font-size: 12px; padding: 5px 9px; border-radius: 7px; border: 1px solid var(--line);
   background: var(--surface-2); cursor: pointer; font-weight: 600; margin: 2px; }
 .small-btn:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+/* ---- company head + watchlist star ---- */
+.company-head { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; margin-bottom: 16px; }
+.company-head h2 { margin: 0; }
+.star-btn { font-size: 13.5px; font-weight: 600; color: var(--ink-soft); background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+.star-btn:hover { border-color: var(--accent); }
+.star-btn.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+/* ---- profile badge next to rationale heading ---- */
+.profile-badge { text-transform: none; font-weight: 600; font-size: 12px; color: var(--accent-ink);
+  background: var(--accent-soft); padding: 2px 9px; border-radius: 999px; letter-spacing: normal; margin-left: 6px; }
+
+/* ---- why this score: driver lists ---- */
+.drivers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 700px) { .drivers-grid { grid-template-columns: 1fr; } }
+.drivers-heading { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  margin-bottom: 8px; }
+.drivers-heading-good { color: #0f6b3f; }
+.drivers-heading-bad { color: #8a1f1f; }
+.driver-list { list-style: none; margin: 0; padding: 0; }
+.driver-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.driver-list li:last-child { border-bottom: none; }
+.driver-tag { display: block; font-size: 11.5px; color: var(--muted); font-weight: 400; margin-top: 2px; }

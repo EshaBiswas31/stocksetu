@@ -32,13 +32,24 @@
           <option value="BSE">BSE</option>
         </select>
       </div>
+      <div class="field exchange">
+        <label>Risk profile</label>
+        <select id="profileInput">
+          <option value="trader">Trader (short-term)</option>
+          <option value="balanced" selected>Balanced</option>
+          <option value="investor">Investor (long-term)</option>
+        </select>
+      </div>
       <button class="btn btn-accent" id="analyzeBtn">Analyze</button>
     </div>
 
     <p id="statusLine" class="status-line"></p>
 
     <div id="results" class="hidden">
-      <h2 id="companyTitle" style="margin-bottom: 16px;"></h2>
+      <div class="company-head">
+        <h2 id="companyTitle"></h2>
+        <button class="star-btn" id="starBtn" title="Save to watchlist">&#9734; Add to Watchlist</button>
+      </div>
 
       <!-- Overall score -->
       <div class="card overall-card">
@@ -51,12 +62,27 @@
           <div class="gauge-label" id="overallLabel">--</div>
         </div>
         <div>
-          <h3>Overall Rationale</h3>
+          <h3>Overall Rationale <span class="profile-badge" id="profileBadge"></span></h3>
           <p class="rationale-text" id="rationaleText"></p>
           <div class="pillar-mini-scores">
             <div class="pillar-mini"><span class="mini-label">Fundamental</span><span class="mini-score" id="miniFund">--</span></div>
             <div class="pillar-mini"><span class="mini-label">Technical</span><span class="mini-score" id="miniTech">--</span></div>
             <div class="pillar-mini"><span class="mini-label">Quantitative</span><span class="mini-score" id="miniQuant">--</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Why this score: top driving signals -->
+      <div class="card">
+        <h3>Why This Score</h3>
+        <div class="drivers-grid">
+          <div>
+            <div class="drivers-heading drivers-heading-good">Strongest Bullish Signals</div>
+            <ul class="driver-list" id="driversPositive"></ul>
+          </div>
+          <div>
+            <div class="drivers-heading drivers-heading-bad">Strongest Bearish Signals</div>
+            <ul class="driver-list" id="driversNegative"></ul>
           </div>
         </div>
       </div>
@@ -80,6 +106,11 @@
         <h3>Price vs Moving Averages (Daily, 2 Years)</h3>
         <canvas id="priceChart" height="90"></canvas>
       </div>
+    </div>
+
+    <div class="card">
+      <h3>My Watchlist</h3>
+      <ul class="recent-list" id="watchlistList"></ul>
     </div>
 
     <div class="card">

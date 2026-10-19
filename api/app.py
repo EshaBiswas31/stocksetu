@@ -7,7 +7,7 @@ The entire backend. One Flask app, organized into six sections:
   2. Auth routes            (signup, login, logout, who-am-i)
   3. Password reset          (forgot password, reset password)
   4. Analyze route            (THE main feature - runs all 3 pillars)
-  5. Recent list
+  5. Recent list + Watchlist   (star a company, see it again later)
   6. Admin routes              (cPanel-style: list users, add a customer
                                  directly with a password, enable/disable,
                                  promote/demote, reset a user's password)
@@ -217,6 +217,9 @@ def analyze():
 
     raw_input = request.args.get("symbol") or ""
     exchange = (request.args.get("exchange") or "NSE").strip().upper()
+    profile = request.args.get("profile") or scoring.DEFAULT_PROFILE
+    if profile not in scoring.PROFILES:
+        profile = scoring.DEFAULT_PROFILE
 
     symbol, validation_error = resolve_and_validate(raw_input, exchange)
     if validation_error:
@@ -230,7 +233,7 @@ def analyze():
     fundamental_result = fundamental.analyze(data["info"], data["financials"])
     technical_result = technical.analyze(data["intraday"], data["daily"], data["weekly"])
     quant_result = quant.analyze(data["intraday"], data["daily"], data["weekly"])
-    combined = scoring.combine(fundamental_result, technical_result, quant_result)
+    combined = scoring.combine(fundamental_result, technical_result, quant_result, profile)
 
     daily = data["daily"]
     chart = {
@@ -239,6 +242,11 @@ def analyze():
         "sma20": _rolling_list(daily["Close"], 20),
         "sma50": _rolling_list(daily["Close"], 50),
     }
+
+    in_watchlist = fetch_one(
+        "SELECT 1 FROM watchlist WHERE user_id = %s AND symbol = %s AND exchange = %s",
+        (user["id"], symbol, exchange),
+    ) is not None
 
     report = {
         "symbol": symbol,
@@ -249,6 +257,7 @@ def analyze():
         "technical": _strip_raw_events_for_json(technical_result),
         "quant": quant_result,
         "chart": chart,
+        "in_watchlist": in_watchlist,
     }
 
     execute(
@@ -297,6 +306,64 @@ def recent():
     for r in rows:
         r["fetched_at"] = r["fetched_at"].strftime("%Y-%m-%d %H:%M")
     return jsonify({"recent": rows})
+
+
+@app.route("/api/watchlist")
+def get_watchlist():
+    """Companies this logged-in user has starred, newest first. Joined
+    against score_cache so we can show their last known score without
+    hitting Yahoo Finance again."""
+    ensure_db()
+    user, err = require_login()
+    if err:
+        return err
+    rows = fetch_all(
+        """SELECT w.symbol, w.exchange, w.company_name, w.added_at,
+                  sc.overall_score, sc.label
+           FROM watchlist w
+           LEFT JOIN score_cache sc ON sc.symbol = w.symbol AND sc.exchange = w.exchange
+           WHERE w.user_id = %s
+           ORDER BY w.added_at DESC""",
+        (user["id"],),
+    )
+    for r in rows:
+        r["added_at"] = r["added_at"].strftime("%Y-%m-%d")
+    return jsonify({"watchlist": rows})
+
+
+@app.route("/api/watchlist/toggle", methods=["POST"])
+def toggle_watchlist():
+    """One button, two behaviours: star a company that isn't on the list
+    yet, or un-star one that already is. The frontend just calls this
+    and reads back whether it ended up added or removed."""
+    ensure_db()
+    user, err = require_login()
+    if err:
+        return err
+
+    data = request.get_json(force=True, silent=True) or {}
+    symbol = (data.get("symbol") or "").strip().upper()
+    exchange = (data.get("exchange") or "NSE").strip().upper()
+    company_name = data.get("company_name") or symbol
+
+    if not symbol:
+        return jsonify({"error": "Missing symbol."}), 400
+
+    existing = fetch_one(
+        "SELECT id FROM watchlist WHERE user_id = %s AND symbol = %s AND exchange = %s",
+        (user["id"], symbol, exchange),
+    )
+    if existing:
+        execute("DELETE FROM watchlist WHERE id = %s", (existing["id"],))
+        return jsonify({"message": "Removed from watchlist.", "added": False})
+
+    execute(
+        """INSERT INTO watchlist (user_id, symbol, exchange, company_name)
+           VALUES (%s, %s, %s, %s)
+           ON CONFLICT (user_id, symbol, exchange) DO NOTHING""",
+        (user["id"], symbol, exchange, company_name),
+    )
+    return jsonify({"message": "Added to watchlist.", "added": True})
 
 
 # ======================================================================
