@@ -49,19 +49,19 @@ const PROFILE_LABELS = {
 
 document.getElementById("logoutBtn").addEventListener("click", doLogout);
 document.getElementById("analyzeBtn").addEventListener("click", runAnalysis);
-document.getElementById("profileInput").addEventListener("change", () => {
-  // Changing the risk profile re-weights the same signals, so if a
-  // report is already on screen, just re-run the analysis with the
-  // new profile rather than making the user click Analyze again.
-  if (report) runAnalysis();
-});
+// Nothing calls Yahoo Finance / runs the analysis on its own -- not
+// autocomplete, not clicking a watchlist row, not changing the risk
+// profile. Those only ever fill in the search box; analysis runs only
+// when the user explicitly clicks "Analyze" (or presses Enter in the
+// search box, which is the same thing).
 document.getElementById("starBtn").addEventListener("click", toggleWatchlist);
 
 // ---------------------------------------------------------------------
 // Autocomplete: as the user types a company name, show matching
 // symbols in a dropdown (core/symbols.py's friendly-name list, served
-// by /api/symbols/search). Picking one fills the box and runs the
-// analysis straight away.
+// by /api/symbols/search). Picking one only fills the box -- it does
+// NOT run the analysis; the user still clicks Analyze (or presses
+// Enter) themselves.
 // ---------------------------------------------------------------------
 const symbolInput = document.getElementById("symbolInput");
 const suggestBox = document.getElementById("symbolSuggestions");
@@ -122,7 +122,10 @@ function renderSuggestions(results) {
     li.addEventListener("click", () => {
       symbolInput.value = li.dataset.symbol;
       hideSuggestions();
-      runAnalysis();
+      symbolInput.focus();
+      // Deliberately no runAnalysis() here -- picking a suggestion only
+      // fills the box. The user clicks Analyze (or presses Enter) to
+      // actually run it, same as if they'd typed the symbol themselves.
     });
   });
   suggestBox.classList.remove("hidden");
@@ -242,10 +245,15 @@ async function loadWatchlist() {
     tr.querySelector('[data-action="remove"]').addEventListener("click", () => removeWatchlistRow(r));
     tr.querySelectorAll("td:not(.watch-actions)").forEach((td) => {
       td.style.cursor = "pointer";
+      td.title = "Fill the search box with this symbol";
       td.addEventListener("click", () => {
+        // Fills the search box only -- same rule as autocomplete: the
+        // user still clicks Analyze to actually run it. Use the
+        // row's own Refresh button to re-score this symbol directly.
         document.getElementById("symbolInput").value = r.symbol;
         document.getElementById("exchangeInput").value = r.exchange;
-        runAnalysis();
+        document.getElementById("symbolInput").focus();
+        window.scrollTo({ top: 0, behavior: "smooth" });
       });
     });
     body.appendChild(tr);

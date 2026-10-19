@@ -7,7 +7,10 @@ from **-100 (extremely bearish) to +100 (extremely bullish)**.
 
 ## What it does
 
-1. Log in (or sign up, or have an admin create your account).
+1. Log in. There is no public sign-up page -- every account is created
+   by an admin from the Admin Panel (or is the first admin, seeded from
+   `ADMIN_EMAIL`/`ADMIN_PASSWORD` at deploy time). This is deliberate:
+   it's a closed tool for people the admin has actually added.
 2. Type a company name or symbol (e.g. `TCS`, `Infosys`, `RELIANCE`) and
    pick NSE or BSE.
 3. The backend fetches real data from Yahoo Finance and runs three
@@ -69,7 +72,7 @@ visible, not hidden.
 ```
 stocksetu_v2/
   public/                    Frontend - plain HTML/CSS/JS, no framework
-    login.html, signup.html, forgot.html, reset.html
+    login.html, forgot.html, reset.html
     dashboard.html, admin.html
     style.css, common.js, dashboard.js, admin.js
   api/

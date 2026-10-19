@@ -4,7 +4,8 @@ app.py
 The entire backend. One Flask app, organized into six sections:
 
   1. Setup & helpers
-  2. Auth routes            (signup, login, logout, who-am-i)
+  2. Auth routes            (login, logout, who-am-i -- no public signup;
+                              see the note above the auth routes below)
   3. Password reset          (forgot password, reset password)
   4. Analyze route            (THE main feature - runs all 3 pillars)
   5. Recent list + Watchlist   (star a company, see it again later)
@@ -83,34 +84,13 @@ def home():
 
 # ======================================================================
 # 2. Auth routes
+#
+# There is deliberately no public /api/signup route. Every account --
+# including the first admin -- is created one of two ways: the ADMIN_EMAIL
+# / ADMIN_PASSWORD environment variables (see core/db.py -> init_db()),
+# or an admin using "Add Customer" in the Admin Panel (see section 6
+# below). Nobody can create their own account from the login page.
 # ======================================================================
-
-@app.route("/api/signup", methods=["POST"])
-def signup():
-    ensure_db()
-    data = request.get_json(force=True, silent=True) or {}
-    name = (data.get("name") or "").strip()
-    email = (data.get("email") or "").strip().lower()
-    password = data.get("password") or ""
-
-    if not name or not email or not password:
-        return jsonify({"error": "Please fill in your name, email and password."}), 400
-    if len(password) < 6:
-        return jsonify({"error": "Password must be at least 6 characters."}), 400
-    if "@" not in email or "." not in email:
-        return jsonify({"error": "Please enter a valid email address."}), 400
-
-    existing = fetch_one("SELECT id FROM users WHERE email = %s", (email,))
-    if existing:
-        return jsonify({"error": "An account with this email already exists."}), 400
-
-    row = fetch_one(
-        """INSERT INTO users (name, email, password_hash, role)
-           VALUES (%s, %s, %s, 'user') RETURNING id""",
-        (name, email, generate_password_hash(password)),
-    )
-    session["user_id"] = row["id"]
-    return jsonify({"message": "Account created.", "user": {"name": name, "email": email, "role": "user"}})
 
 
 @app.route("/api/login", methods=["POST"])
