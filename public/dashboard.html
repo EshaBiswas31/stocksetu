@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard - StockSetu</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand"><span class="mark"></span>StockSetu</div>
+    <div class="top-actions">
+      <span class="who">Hi, <b id="userName">...</b></span>
+      <a href="admin.html" class="pill-link hidden" id="adminLink">Admin Panel</a>
+      <button class="pill-link" id="logoutBtn">Log out</button>
+    </div>
+  </div>
+
+  <div class="page">
+
+    <div class="search-card">
+      <div class="field">
+        <label>Company name or symbol</label>
+        <input type="text" id="symbolInput" placeholder="e.g. TCS, Infosys, RELIANCE" />
+      </div>
+      <div class="field exchange">
+        <label>Exchange</label>
+        <select id="exchangeInput">
+          <option value="NSE">NSE</option>
+          <option value="BSE">BSE</option>
+        </select>
+      </div>
+      <button class="btn btn-accent" id="analyzeBtn">Analyze</button>
+    </div>
+
+    <p id="statusLine" class="status-line"></p>
+
+    <div id="results" class="hidden">
+      <h2 id="companyTitle" style="margin-bottom: 16px;"></h2>
+
+      <!-- Overall score -->
+      <div class="card overall-card">
+        <div class="gauge-wrap">
+          <div class="gauge">
+            <div class="arc"></div>
+            <div class="needle" id="needle"></div>
+          </div>
+          <div class="gauge-score" id="overallScore">--</div>
+          <div class="gauge-label" id="overallLabel">--</div>
+        </div>
+        <div>
+          <h3>Overall Rationale</h3>
+          <p class="rationale-text" id="rationaleText"></p>
+          <div class="pillar-mini-scores">
+            <div class="pillar-mini"><span class="mini-label">Fundamental</span><span class="mini-score" id="miniFund">--</span></div>
+            <div class="pillar-mini"><span class="mini-label">Technical</span><span class="mini-score" id="miniTech">--</span></div>
+            <div class="pillar-mini"><span class="mini-label">Quantitative</span><span class="mini-score" id="miniQuant">--</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pillar tabs -->
+      <div class="pillar-tabs" id="pillarTabs"></div>
+
+      <div id="algoBanner" class="algo-banner hidden">
+        <span class="dot"></span>
+        <span>Crossovers on this tab are detected with the <b>Line Segment Intersection (sweep-line) algorithm</b> --
+          <span id="algoStats"></span></span>
+      </div>
+
+      <div class="horizon-tabs" id="horizonTabs"></div>
+
+      <div class="card">
+        <div id="horizonContent"></div>
+      </div>
+
+      <div class="card chart-card">
+        <h3>Price vs Moving Averages (Daily, 2 Years)</h3>
+        <canvas id="priceChart" height="90"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Recently Analyzed</h3>
+      <ul class="recent-list" id="recentList"></ul>
+    </div>
+
+  </div>
+
+  <script src="common.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

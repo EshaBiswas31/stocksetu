@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Reset password - StockSetu</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="auth-wrap">
+    <aside class="auth-story">
+      <div class="brand"><span class="mark"></span>StockSetu</div>
+      <h1>Choose a new password.</h1>
+      <p class="lead">Make it something you haven't used before, at least 6 characters.</p>
+    </aside>
+    <div class="auth-panel">
+      <div class="auth-card">
+        <div class="brand"><span class="mark"></span>StockSetu</div>
+        <h2>Set a new password</h2>
+        <p class="sub">This link is valid for 1 hour from when it was sent.</p>
+        <div id="msg" class="msg hidden"></div>
+        <form id="resetForm">
+          <div class="field"><label>New password</label><input type="password" id="password" placeholder="At least 6 characters" required /></div>
+          <div class="field"><label>Confirm new password</label><input type="password" id="confirm" placeholder="Retype new password" required /></div>
+          <button type="submit" class="btn btn-accent btn-wide" id="submitBtn">Update password</button>
+        </form>
+        <p class="auth-foot"><a href="login.html">Back to log in</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="common.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token") || "";
+    const form = document.getElementById("resetForm");
+    const msg = document.getElementById("msg");
+    const submitBtn = document.getElementById("submitBtn");
+
+    if (!token) {
+      showMsg(msg, "This reset link is missing its token. Please request a new one from the Forgot Password page.", true);
+      form.querySelectorAll("input, button").forEach(el => el.disabled = true);
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const password = document.getElementById("password").value;
+      const confirm = document.getElementById("confirm").value;
+      if (password !== confirm) { showMsg(msg, "Passwords don't match.", true); return; }
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Updating...";
+      const { ok, data } = await apiPost("/api/reset-password", { token, new_password: password });
+      if (!ok) {
+        showMsg(msg, data.error, true);
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Update password";
+        return;
+      }
+      showMsg(msg, "Password updated! Redirecting to log in...", false);
+      setTimeout(() => window.location.href = "login.html", 1500);
+    });
+  </script>
+</body>
+</html>

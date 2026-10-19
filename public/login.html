@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Log in - StockSetu</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="auth-wrap">
+    <aside class="auth-story">
+      <div class="brand"><span class="mark"></span>StockSetu</div>
+      <h1>Fundamental, technical and quantitative analysis for every NSE &amp; BSE company, in one score.</h1>
+      <p class="lead">Crossover signals are found using a real line-segment intersection algorithm,
+        not simple day-by-day checks -- see exactly how many segments and crossings were analyzed.</p>
+      <div class="sample-card">
+        <div class="tkr">TCS <span class="co">Tata Consultancy Services, NSE</span></div>
+        <div class="score-row">
+          <span class="score-num">+42</span>
+          <span class="score-label">Overall Score &middot; Bullish</span>
+        </div>
+      </div>
+    </aside>
+
+    <div class="auth-panel">
+      <div class="auth-card">
+        <div class="brand"><span class="mark"></span>StockSetu</div>
+        <h2>Welcome back</h2>
+        <p class="sub">Log in to analyze a company.</p>
+        <div id="msg" class="msg hidden"></div>
+        <form id="loginForm">
+          <div class="field"><label>Email</label><input type="email" id="email" placeholder="you@example.com" required /></div>
+          <div class="field"><label>Password</label><input type="password" id="password" placeholder="Your password" required /></div>
+          <button type="submit" class="btn btn-accent btn-wide" id="submitBtn">Log in</button>
+        </form>
+        <p class="auth-foot"><a href="forgot.html">Forgot password?</a></p>
+        <p class="auth-foot">New here? <a href="signup.html">Create an account</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="common.js"></script>
+  <script>
+    const form = document.getElementById("loginForm");
+    const msg = document.getElementById("msg");
+    const submitBtn = document.getElementById("submitBtn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      showMsg(msg, "", false);
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Logging in...";
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const { ok, data } = await apiPost("/api/login", { email, password });
+      if (!ok) {
+        showMsg(msg, data.error, true);
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Log in";
+        return;
+      }
+      window.location.href = "dashboard.html";
+    });
+
+    (async () => {
+      const { data } = await apiGet("/api/me");
+      if (data.user) window.location.href = "dashboard.html";
+    })();
+  </script>
+</body>
+</html>

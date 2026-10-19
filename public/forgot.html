@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Forgot password - StockSetu</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="auth-wrap">
+    <aside class="auth-story">
+      <div class="brand"><span class="mark"></span>StockSetu</div>
+      <h1>We'll email you a secure link to set a new password.</h1>
+      <p class="lead">The link works for one hour. If you don't see the email, check your spam folder.</p>
+    </aside>
+    <div class="auth-panel">
+      <div class="auth-card">
+        <div class="brand"><span class="mark"></span>StockSetu</div>
+        <h2>Forgot your password?</h2>
+        <p class="sub">Enter the email you signed up with.</p>
+        <div id="msg" class="msg hidden"></div>
+        <form id="forgotForm">
+          <div class="field"><label>Email</label><input type="email" id="email" placeholder="you@example.com" required /></div>
+          <button type="submit" class="btn btn-accent btn-wide" id="submitBtn">Send reset link</button>
+        </form>
+        <p class="auth-foot"><a href="login.html">Back to log in</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="common.js"></script>
+  <script>
+    const form = document.getElementById("forgotForm");
+    const msg = document.getElementById("msg");
+    const submitBtn = document.getElementById("submitBtn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Sending...";
+      const email = document.getElementById("email").value.trim();
+      const { ok, data } = await apiPost("/api/forgot", { email });
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Send reset link";
+      showMsg(msg, data.message || data.error, !ok);
+    });
+  </script>
+</body>
+</html>
