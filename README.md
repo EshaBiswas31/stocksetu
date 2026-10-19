@@ -19,9 +19,22 @@ from **-100 (extremely bearish) to +100 (extremely bullish)**.
    | **Technical** | Intraday / Weekly / Monthly | Price action and moving-average crossovers, found with the **Line Segment Intersection (sweep-line) algorithm** |
    | **Quantitative** | Intraday / Weekly / Monthly | Statistical view: momentum, volatility, risk-adjusted return |
 
-4. The three pillar scores are averaged into one **Overall Score** from
-   -100 to +100, with a plain-English rationale.
-5. **Admins** get a cPanel-style panel: add a customer directly (name,
+4. Pick a **Risk Profile** -- Trader, Balanced, or Investor. This changes
+   how much weight the three pillars (and the three horizons inside each
+   pillar) get when they're combined into one **Overall Score** from
+   -100 to +100. A Trader profile leans heavily on Intraday Technical/
+   Quant signals; an Investor profile leans heavily on Long-term
+   Fundamentals. Same underlying signals, different emphasis -- nothing
+   is re-computed, just re-weighted. See `core/scoring.py` -> `PROFILES`.
+5. **"Why This Score"**: every individual metric (RSI, P/E ratio, a
+   moving-average crossover, etc.) already scores itself from -100 to
+   +100. The dashboard simply shows the four strongest bullish and four
+   strongest bearish of those metric scores, across all three pillars --
+   so the final number is never a black box.
+6. **Watchlist**: logged-in users can star a company from the results
+   page; starred companies show up in "My Watchlist" with their last
+   known score, and clicking one re-runs the analysis instantly.
+7. **Admins** get a cPanel-style panel: add a customer directly (name,
    email, password), see every admin and customer in one table, disable
    accounts, promote/demote, or reset anyone's password.
 
@@ -64,7 +77,7 @@ stocksetu_v2/
     technical.py                    Technical pillar, 3 horizons (uses sweep_line.py)
     quant.py                         Quantitative pillar, 3 horizons
     scoring.py                        Combines the 3 pillars into the final score
-    db.py                              All SQL (Postgres) - users, score_cache
+    db.py                              All SQL (Postgres) - users, score_cache, watchlist
     mailer.py                          Sends the password-reset email
   requirements.txt
   vercel.json
@@ -97,18 +110,23 @@ stocksetu_v2/
    each metric has its own small scoring function with commented
    thresholds, horizons average whatever metrics are available.
 
-5. **`core/scoring.py`** — the final step: average the three pillar
-   scores, pick a label (Strong Bullish/Bullish/Neutral/Bearish/Strong
-   Bearish), and write a one-paragraph rationale naming the strongest
-   and weakest pillar.
+5. **`core/scoring.py`** — the final step. `PROFILES` holds the Trader/
+   Balanced/Investor weight tables; `combine()` does a weighted average
+   of each pillar's three horizon scores (skipping any horizon with no
+   data), then a weighted average of the three pillars, picks a label
+   (Strong Bullish/Bullish/Neutral/Bearish/Strong Bearish), and writes a
+   one-paragraph rationale. `_top_drivers()` is the "Why This Score"
+   logic -- it flattens every metric score from every horizon of every
+   pillar into one list and returns the strongest positives/negatives.
 
 6. **`core/yahoo.py`** — fetches daily (2y), weekly (resampled), and
    best-effort intraday (5-min, ~5 days) price history, plus the
    company's fundamentals, from Yahoo Finance via `yfinance`.
 
 7. **`core/db.py`** — every SQL query in one place, plain readable SQL
-   (no ORM). `init_db()` creates the two tables and seeds the first
-   admin account from environment variables.
+   (no ORM). `init_db()` creates the three tables (`users`, `score_cache`,
+   `watchlist`) and seeds the first admin account from environment
+   variables.
 
 8. **`api/app.py`** — the whole backend, organized into six labelled
    sections. Each route is short: validate input → call a `core/`
