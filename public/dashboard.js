@@ -49,9 +49,6 @@ const PROFILE_LABELS = {
 
 document.getElementById("logoutBtn").addEventListener("click", doLogout);
 document.getElementById("analyzeBtn").addEventListener("click", runAnalysis);
-document.getElementById("symbolInput").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") runAnalysis();
-});
 document.getElementById("profileInput").addEventListener("change", () => {
   // Changing the risk profile re-weights the same signals, so if a
   // report is already on screen, just re-run the analysis with the
@@ -59,6 +56,87 @@ document.getElementById("profileInput").addEventListener("change", () => {
   if (report) runAnalysis();
 });
 document.getElementById("starBtn").addEventListener("click", toggleWatchlist);
+
+// ---------------------------------------------------------------------
+// Autocomplete: as the user types a company name, show matching
+// symbols in a dropdown (core/symbols.py's friendly-name list, served
+// by /api/symbols/search). Picking one fills the box and runs the
+// analysis straight away.
+// ---------------------------------------------------------------------
+const symbolInput = document.getElementById("symbolInput");
+const suggestBox = document.getElementById("symbolSuggestions");
+let suggestTimer = null;
+let suggestIndex = -1;
+
+symbolInput.addEventListener("input", () => {
+  clearTimeout(suggestTimer);
+  const q = symbolInput.value.trim();
+  if (!q) { hideSuggestions(); return; }
+  suggestTimer = setTimeout(() => fetchSuggestions(q), 120);
+});
+
+symbolInput.addEventListener("keydown", (e) => {
+  const items = suggestBox.querySelectorAll("li");
+  if (e.key === "ArrowDown" && items.length) {
+    e.preventDefault();
+    suggestIndex = Math.min(suggestIndex + 1, items.length - 1);
+    highlightSuggestion(items);
+  } else if (e.key === "ArrowUp" && items.length) {
+    e.preventDefault();
+    suggestIndex = Math.max(suggestIndex - 1, 0);
+    highlightSuggestion(items);
+  } else if (e.key === "Enter") {
+    if (suggestIndex >= 0 && items[suggestIndex]) {
+      e.preventDefault();
+      items[suggestIndex].click();
+    } else {
+      hideSuggestions();
+      runAnalysis();
+    }
+  } else if (e.key === "Escape") {
+    hideSuggestions();
+  }
+});
+
+document.addEventListener("click", (e) => {
+  if (!suggestBox.contains(e.target) && e.target !== symbolInput) hideSuggestions();
+});
+
+async function fetchSuggestions(query) {
+  const { ok, data } = await apiGet(`/api/symbols/search?q=${encodeURIComponent(query)}`);
+  if (!ok || symbolInput.value.trim() !== query) return;
+  renderSuggestions(data.results);
+}
+
+function renderSuggestions(results) {
+  suggestIndex = -1;
+  if (!results || results.length === 0) { hideSuggestions(); return; }
+  suggestBox.innerHTML = results.map((r) => `
+    <li data-symbol="${r.symbol}">
+      <span class="suggest-ticker">${r.symbol}</span>
+      <span class="suggest-name">${r.name}</span>
+      <span class="suggest-exchange">${document.getElementById("exchangeInput").value}</span>
+    </li>
+  `).join("");
+  suggestBox.querySelectorAll("li").forEach((li) => {
+    li.addEventListener("click", () => {
+      symbolInput.value = li.dataset.symbol;
+      hideSuggestions();
+      runAnalysis();
+    });
+  });
+  suggestBox.classList.remove("hidden");
+}
+
+function highlightSuggestion(items) {
+  items.forEach((li, i) => li.classList.toggle("active", i === suggestIndex));
+}
+
+function hideSuggestions() {
+  suggestBox.classList.add("hidden");
+  suggestBox.innerHTML = "";
+  suggestIndex = -1;
+}
 
 async function runAnalysis() {
   const symbol = document.getElementById("symbolInput").value.trim();
@@ -131,29 +209,76 @@ function renderStarButton() {
 async function loadWatchlist() {
   const { ok, data } = await apiGet("/api/watchlist");
   if (!ok) return;
-  const ul = document.getElementById("watchlistList");
-  ul.innerHTML = "";
+  const body = document.getElementById("watchlistBody");
+  const empty = document.getElementById("watchlistEmpty");
+  body.innerHTML = "";
+
   if (data.watchlist.length === 0) {
-    ul.innerHTML = `<li style="color: var(--muted);">Nothing starred yet -- analyze a company and click "Add to Watchlist".</li>`;
+    empty.classList.remove("hidden");
     return;
   }
+  empty.classList.add("hidden");
+
   data.watchlist.forEach((r) => {
-    const li = document.createElement("li");
-    li.style.cursor = "pointer";
-    const scoreHtml = r.overall_score === null || r.overall_score === undefined
-      ? `<span class="score-chip chip-neutral">not yet scored</span>`
-      : `<span class="score-chip ${labelClass(r.label)}">${signed(r.overall_score)} &middot; ${r.label}</span>`;
-    li.innerHTML = `
-      <div><span class="tkr">${r.symbol}</span> &middot; <span class="co">${r.company_name || ""} (${r.exchange})</span></div>
-      ${scoreHtml}
+    const tr = document.createElement("tr");
+    const scored = r.overall_score !== null && r.overall_score !== undefined;
+    tr.innerHTML = `
+      <td>
+        <div class="tkr">${r.symbol}</div>
+        <div class="co">${r.company_name || ""} &middot; ${r.exchange}</div>
+      </td>
+      <td>${scored ? `<span class="badge-bias ${labelClass(r.label)}">${r.label}</span>` : `<span class="badge-bias chip-neutral">Not scored</span>`}</td>
+      <td class="${numClass(r.overall_score)}">${scored ? signed(r.overall_score) : "--"}</td>
+      <td class="${numClass(r.fundamental_score)}">${pillarSigned(r.fundamental_score)}</td>
+      <td class="${numClass(r.technical_score)}">${pillarSigned(r.technical_score)}</td>
+      <td class="${numClass(r.quant_score)}">${pillarSigned(r.quant_score)}</td>
+      <td class="muted-cell">${formatRefreshed(r.fetched_at)}</td>
+      <td class="watch-actions">
+        <button class="small-btn" data-action="refresh">Refresh</button>
+        <button class="small-btn small-btn-danger" data-action="remove">Remove</button>
+      </td>
     `;
-    li.addEventListener("click", () => {
-      document.getElementById("symbolInput").value = r.symbol;
-      document.getElementById("exchangeInput").value = r.exchange;
-      runAnalysis();
+    tr.querySelector('[data-action="refresh"]').addEventListener("click", () => refreshWatchlistRow(r, tr));
+    tr.querySelector('[data-action="remove"]').addEventListener("click", () => removeWatchlistRow(r));
+    tr.querySelectorAll("td:not(.watch-actions)").forEach((td) => {
+      td.style.cursor = "pointer";
+      td.addEventListener("click", () => {
+        document.getElementById("symbolInput").value = r.symbol;
+        document.getElementById("exchangeInput").value = r.exchange;
+        runAnalysis();
+      });
     });
-    ul.appendChild(li);
+    body.appendChild(tr);
   });
+}
+
+function formatRefreshed(isoString) {
+  if (!isoString) return "Never";
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const minutes = Math.round(diffMs / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return new Date(isoString).toLocaleDateString();
+}
+
+async function refreshWatchlistRow(r, tr) {
+  const btn = tr.querySelector('[data-action="refresh"]');
+  btn.disabled = true;
+  btn.textContent = "...";
+  const profile = document.getElementById("profileInput").value;
+  await apiGet(`/api/analyze?symbol=${encodeURIComponent(r.symbol)}&exchange=${r.exchange}&profile=${profile}`);
+  await loadWatchlist();
+}
+
+async function removeWatchlistRow(r) {
+  await apiPost("/api/watchlist/toggle", { symbol: r.symbol, exchange: r.exchange, company_name: r.company_name });
+  if (report && report.symbol === r.symbol && report.exchange === r.exchange) {
+    report.in_watchlist = false;
+    renderStarButton();
+  }
+  loadWatchlist();
 }
 
 function renderAll() {
@@ -236,6 +361,16 @@ function scoreClass(score) {
   if (score > -10) return "chip-neutral";
   if (score > -40) return "chip-bad";
   return "chip-strong-bad";
+}
+
+// Same -100..+100 scale and the same +-20 "Neutral" band as
+// scoring.py's overall_label(), but returns a plain text color (no chip
+// background) -- used for dense table cells like the watchlist.
+function numClass(score) {
+  if (score === null || score === undefined) return "num-neutral";
+  if (score >= 20) return "num-good";
+  if (score <= -20) return "num-bad";
+  return "num-neutral";
 }
 
 function renderPillarTabs() {

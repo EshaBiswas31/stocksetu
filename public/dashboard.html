@@ -21,9 +21,10 @@
   <div class="page">
 
     <div class="search-card">
-      <div class="field">
+      <div class="field suggest-field">
         <label>Company name or symbol</label>
-        <input type="text" id="symbolInput" placeholder="e.g. TCS, Infosys, RELIANCE" />
+        <input type="text" id="symbolInput" placeholder="e.g. TCS, Infosys, RELIANCE" autocomplete="off" />
+        <ul class="suggest-dropdown hidden" id="symbolSuggestions"></ul>
       </div>
       <div class="field exchange">
         <label>Exchange</label>
@@ -108,9 +109,24 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card table-card">
       <h3>My Watchlist</h3>
-      <ul class="recent-list" id="watchlistList"></ul>
+      <table class="watch-table">
+        <thead>
+          <tr>
+            <th>Security</th>
+            <th>Bias</th>
+            <th>Overall</th>
+            <th>Fundamental</th>
+            <th>Technical</th>
+            <th>Quant</th>
+            <th>Refreshed</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="watchlistBody"></tbody>
+      </table>
+      <p class="unavailable-note hidden" id="watchlistEmpty">Nothing starred yet -- analyze a company and click "Add to Watchlist".</p>
     </div>
 
     <div class="card">

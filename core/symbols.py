@@ -50,6 +50,45 @@ COMMON_NAMES = {
 _SYMBOL_PATTERN = re.compile(r"^[A-Z0-9&\-]{1,20}$")
 
 
+def search_suggestions(query: str, limit: int = 8):
+    """Powers the autocomplete dropdown: given whatever the user has typed
+    so far, returns a list of {"symbol", "name"} matches from the
+    friendly-name list above. Matches on either the ticker itself or any
+    of its friendly names, and ranks a match at the START of a name
+    higher than one in the middle (so "inf" lists Infosys before a name
+    that merely contains "inf" somewhere else)."""
+    query = (query or "").strip().lower()
+    if not query:
+        return []
+
+    # Build one entry per ticker, collecting every friendly name that
+    # maps to it (COMMON_NAMES has several spellings per company).
+    by_symbol = {}
+    for name, symbol in COMMON_NAMES.items():
+        by_symbol.setdefault(symbol, set()).add(name)
+
+    scored = []
+    for symbol, names in by_symbol.items():
+        # Prefer the longest/most complete name as the display name.
+        display_name = max(names, key=len).title()
+        best_rank = None
+        for candidate in list(names) + [symbol.lower()]:
+            words = candidate.split()
+            if candidate.startswith(query):
+                rank = 0
+            elif any(word.startswith(query) for word in words):
+                rank = 1  # matches the start of a later word, e.g. "bank" in "axis bank"
+            else:
+                continue
+            if best_rank is None or rank < best_rank:
+                best_rank = rank
+        if best_rank is not None:
+            scored.append((best_rank, symbol, display_name))
+
+    scored.sort(key=lambda t: (t[0], t[1]))
+    return [{"symbol": s, "name": n} for _, s, n in scored[:limit]]
+
+
 def resolve_and_validate(raw_input: str, exchange: str):
     """Returns (symbol, error). `symbol` is the cleaned-up ticker to send
     to Yahoo Finance (None if invalid); `error` is a human-readable

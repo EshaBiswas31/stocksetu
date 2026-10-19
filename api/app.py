@@ -28,7 +28,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from core.db import init_db, fetch_one, fetch_all, execute
 from core.yahoo import fetch_all_data
-from core.symbols import resolve_and_validate
+from core.symbols import resolve_and_validate, search_suggestions as search_symbols
 from core import fundamental, technical, quant, scoring
 from core.mailer import send_reset_email
 
@@ -260,16 +260,23 @@ def analyze():
         "in_watchlist": in_watchlist,
     }
 
+    pillar = combined["pillar_scores"]
     execute(
-        """INSERT INTO score_cache (symbol, exchange, company_name, overall_score, label, report)
-           VALUES (%s, %s, %s, %s, %s, %s)
+        """INSERT INTO score_cache
+               (symbol, exchange, company_name, overall_score, label,
+                fundamental_score, technical_score, quant_score, report)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
            ON CONFLICT (symbol, exchange) DO UPDATE SET
                company_name = EXCLUDED.company_name,
                overall_score = EXCLUDED.overall_score,
                label = EXCLUDED.label,
+               fundamental_score = EXCLUDED.fundamental_score,
+               technical_score = EXCLUDED.technical_score,
+               quant_score = EXCLUDED.quant_score,
                report = EXCLUDED.report,
                fetched_at = NOW()""",
-        (symbol, exchange, data["company_name"], combined["overall_score"], combined["label"], _to_json(report)),
+        (symbol, exchange, data["company_name"], combined["overall_score"], combined["label"],
+         pillar["fundamental"], pillar["technical"], pillar["quant"], _to_json(report)),
     )
 
     return jsonify(report)
@@ -311,15 +318,18 @@ def recent():
 @app.route("/api/watchlist")
 def get_watchlist():
     """Companies this logged-in user has starred, newest first. Joined
-    against score_cache so we can show their last known score without
-    hitting Yahoo Finance again."""
+    against score_cache so we can show their last known overall score
+    AND the three pillar scores, side by side, without hitting Yahoo
+    Finance again -- that only happens when the user clicks Refresh."""
     ensure_db()
     user, err = require_login()
     if err:
         return err
     rows = fetch_all(
         """SELECT w.symbol, w.exchange, w.company_name, w.added_at,
-                  sc.overall_score, sc.label
+                  sc.overall_score, sc.label,
+                  sc.fundamental_score, sc.technical_score, sc.quant_score,
+                  sc.fetched_at
            FROM watchlist w
            LEFT JOIN score_cache sc ON sc.symbol = w.symbol AND sc.exchange = w.exchange
            WHERE w.user_id = %s
@@ -328,7 +338,21 @@ def get_watchlist():
     )
     for r in rows:
         r["added_at"] = r["added_at"].strftime("%Y-%m-%d")
+        r["fetched_at"] = r["fetched_at"].isoformat() if r["fetched_at"] else None
     return jsonify({"watchlist": rows})
+
+
+@app.route("/api/symbols/search")
+def symbols_search():
+    """Powers the autocomplete dropdown under the search box: as the user
+    types, suggest matching company names from the friendly-name list in
+    core/symbols.py."""
+    ensure_db()
+    user, err = require_login()
+    if err:
+        return err
+    query = request.args.get("q") or ""
+    return jsonify({"results": search_symbols(query)})
 
 
 @app.route("/api/watchlist/toggle", methods=["POST"])

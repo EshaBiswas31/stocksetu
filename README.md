@@ -31,10 +31,16 @@ from **-100 (extremely bearish) to +100 (extremely bullish)**.
    +100. The dashboard simply shows the four strongest bullish and four
    strongest bearish of those metric scores, across all three pillars --
    so the final number is never a black box.
-6. **Watchlist**: logged-in users can star a company from the results
-   page; starred companies show up in "My Watchlist" with their last
-   known score, and clicking one re-runs the analysis instantly.
-7. **Admins** get a cPanel-style panel: add a customer directly (name,
+6. **Autocomplete**: typing in the search box queries `/api/symbols/search`
+   (backed by the friendly-name list in `core/symbols.py`) and shows a
+   dropdown of matching tickers, arrow-key navigable, like a real
+   trading-terminal search box.
+7. **Watchlist**: logged-in users can star a company from the results
+   page. "My Watchlist" is a terminal-style table -- Security, Bias,
+   Overall/Fundamental/Technical/Quant scores side by side, and when the
+   score was last refreshed -- with a Refresh button (re-runs the
+   analysis for just that row) and a Remove button per row.
+8. **Admins** get a cPanel-style panel: add a customer directly (name,
    email, password), see every admin and customer in one table, disable
    accounts, promote/demote, or reset anyone's password.
 

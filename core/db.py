@@ -59,6 +59,14 @@ def init_db():
                     UNIQUE (symbol, exchange)
                 );
             """)
+            # The watchlist table wants the three pillar scores as their
+            # own plain columns, not buried inside the `report` JSON, so
+            # the SQL that reads them stays simple. ADD COLUMN IF NOT
+            # EXISTS makes this safe to run again even on a database that
+            # already has score_cache from before these columns existed.
+            cur.execute("ALTER TABLE score_cache ADD COLUMN IF NOT EXISTS fundamental_score NUMERIC;")
+            cur.execute("ALTER TABLE score_cache ADD COLUMN IF NOT EXISTS technical_score NUMERIC;")
+            cur.execute("ALTER TABLE score_cache ADD COLUMN IF NOT EXISTS quant_score NUMERIC;")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS watchlist (
                     id SERIAL PRIMARY KEY,
