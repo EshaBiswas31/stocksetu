@@ -38,3 +38,20 @@ async function doLogout() {
   await apiPost("/api/logout");
   window.location.href = "login.html";
 }
+
+// Wires up every ".pw-toggle" button on the page: clicking it flips its
+// sibling password <input> between hidden (dots) and plain text, and
+// flips its own label between "Show" and "Hide". Call this once after
+// the page's password fields exist.
+function initPasswordToggles() {
+  document.querySelectorAll(".pw-toggle").forEach((btn) => {
+    const input = document.getElementById(btn.dataset.for);
+    if (!input) return;
+    btn.addEventListener("click", () => {
+      const showing = input.type === "text";
+      input.type = showing ? "password" : "text";
+      btn.textContent = showing ? "Show" : "Hide";
+      btn.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+    });
+  });
+}
